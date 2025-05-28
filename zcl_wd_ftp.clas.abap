@@ -294,11 +294,12 @@ CLASS ZCL_WD_FTP IMPLEMENTATION.
       lc_prefix_link TYPE c LENGTH 1 VALUE 'l',
       lc_prefix_file TYPE c LENGTH 1 VALUE '-'.
     DATA:
-      lv_start    TYPE i,
-      lv_end      TYPE i,
-      lv_linelen  TYPE i,
-      lv_totalstr TYPE c LENGTH 5,
-      ls_file     TYPE mty_directory_listing.
+      lv_start      TYPE i,
+      lv_end        TYPE i,
+      lv_linelen    TYPE i,
+      lv_totalstr   TYPE c LENGTH 5,
+      lv_passivestr TYPE c LENGTH 7,
+      ls_file       TYPE mty_directory_listing.
     FIELD-SYMBOLS:
       <lv_textline> TYPE mty_ftp_data.
 
@@ -314,7 +315,8 @@ CLASS ZCL_WD_FTP IMPLEMENTATION.
 
       IF ( lv_linelen > 4 ) AND
          ( ( <lv_textline>(4) = '200 ' ) OR
-         ( <lv_textline>(4) = '150 ' ) ).     " initial status
+           ( <lv_textline>(4) = '227 ' ) OR     "PASV
+           ( <lv_textline>(4) = '150 ' ) ).     " initial status
         ADD 1 TO lv_start.
         CONTINUE.
       ENDIF.
@@ -324,6 +326,14 @@ CLASS ZCL_WD_FTP IMPLEMENTATION.
         IF lv_totalstr = 'TOTAL'.
           ADD 1 TO lv_start.
           CONTINUE.                      " length sum line
+        ENDIF.
+      ENDIF.
+      IF lv_linelen > 7.
+        lv_passivestr = <lv_textline>(7).
+        TRANSLATE lv_passivestr TO UPPER CASE.
+        IF lv_passivestr = 'PASSIVE'.
+          ADD 1 TO lv_start.
+          CONTINUE.                      " length PASV line
         ENDIF.
       ENDIF.
       IF ( lv_linelen > 4 ) AND
@@ -671,6 +681,7 @@ CLASS ZCL_WD_FTP IMPLEMENTATION.
       EXPORTING
         handle        = mv_handle
         command       = 'dir'
+*        command       = 'list'
 *       COMPRESS      =
 *       RFC_DESTINATION       =
 *       VERIFY        =
@@ -965,38 +976,53 @@ CLASS ZCL_WD_FTP IMPLEMENTATION.
 
 * ----------------------------------------------------------------------
     SPLIT iv_directory AT '/' INTO TABLE t_dir.
+    DELETE t_dir WHERE table_line IS INITIAL.
+    IF t_dir IS INITIAL.
+      sy-subrc = '4'.
+      sy-msgid  = 'OO'.
+      sy-msgty  = 'E'.
+      sy-msgno  = '000'.
+      sy-msgv1  = 'Invalid folder name.'.
+      sy-msgv2  = ''.
+      sy-msgv3  = ''.
+      sy-msgv4  = ''.
+      RAISE EXCEPTION TYPE zcx_wd_ftp_error EXPORTING ms_sy = sy.
+    ENDIF.
     LOOP AT t_dir ASSIGNING FIELD-SYMBOL(<t_dir>).
-      lv_cmd = 'mkdir "' && <t_dir> && '"'.
-      CALL FUNCTION 'FTP_COMMAND'
-        EXPORTING
-          handle        = mv_handle
-          command       = lv_cmd
-*         COMPRESS      =
-*         RFC_DESTINATION       =
-*         VERIFY        =
+      TRY.
+          CALL METHOD me->change_directory
+            EXPORTING
+              iv_directory = <t_dir>.
+        CATCH zcx_wd_ftp_error.
+
+          lv_cmd = 'mkdir "' && <t_dir> && '"'.
+          CALL FUNCTION 'FTP_COMMAND'
+            EXPORTING
+              handle        = mv_handle
+              command       = lv_cmd
+*             COMPRESS      =
+*             RFC_DESTINATION       =
+*             VERIFY        =
 *     IMPORTING
-*         FILESIZE      =
-*         FILEDATE      =
-*         FILETIME      =
-        TABLES
-          data          = lt_data
-        EXCEPTIONS
-          tcpip_error   = 1
-          command_error = 2
-          data_error    = 3
-          OTHERS        = 4.
+*             FILESIZE      =
+*             FILEDATE      =
+*             FILETIME      =
+            TABLES
+              data          = lt_data
+            EXCEPTIONS
+              tcpip_error   = 1
+              command_error = 2
+              data_error    = 3
+              OTHERS        = 4.
 * ----------------------------------------------------------------------
-      IF sy-subrc <> 0.
-        RAISE EXCEPTION TYPE zcx_wd_ftp_error EXPORTING ms_sy = sy.
-      ELSE.
-        TRY.
+          IF sy-subrc <> 0.
+            RAISE EXCEPTION TYPE zcx_wd_ftp_error EXPORTING ms_sy = sy.
+          ELSE.
             CALL METHOD me->change_directory
               EXPORTING
                 iv_directory = <t_dir>.
-          CATCH zcx_wd_ftp_error.
-            RAISE EXCEPTION TYPE zcx_wd_ftp_error EXPORTING ms_sy = sy.
-        ENDTRY.
-      ENDIF.
+          ENDIF.
+      ENDTRY.
 * ----------------------------------------------------------------------
     ENDLOOP.
 

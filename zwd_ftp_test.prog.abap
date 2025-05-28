@@ -48,10 +48,10 @@ DATA:
   go_ftp TYPE REF TO lcl_ftp.
 
 PARAMETERS:
-  hostname TYPE zcl_wd_ftp=>mty_hostname LOWER CASE,
+  hostname TYPE zcl_wd_ftp=>mty_hostname LOWER CASE MEMORY ID hostname,
   port     TYPE i DEFAULT 21,
-  username TYPE zcl_wd_ftp=>mty_username LOWER CASE,
-  password TYPE zcl_wd_ftp=>mty_password LOWER CASE.
+  username TYPE zcl_wd_ftp=>mty_username LOWER CASE MEMORY ID username,
+  password TYPE zcl_wd_ftp=>mty_password LOWER CASE MEMORY ID password.
 
 *======================================================================
 INITIALIZATION.
@@ -122,6 +122,7 @@ CLASS lcl_ftp IMPLEMENTATION.
 *======================================================================
   METHOD disconnect.
 * ---------------------------------------------------------------------
+    CHECK mo_ftp IS BOUND.
     mo_ftp->disconnect( ).
 
 * ---------------------------------------------------------------------

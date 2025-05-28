@@ -1,64 +1,114 @@
-CLASS zcl_wd_ftp DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_wd_ftp DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
   PUBLIC SECTION.
-    CONSTANTS:
-      mc_blob_length TYPE i VALUE 1024 ##NO_TEXT.
+
     TYPES:
-      mty_type     TYPE c LENGTH 1,
-      mty_filesize TYPE i,
-      mty_filename TYPE c LENGTH 255,
-      mty_filedate TYPE d,
+      mty_type     TYPE c LENGTH 1 .
+    TYPES mty_filesize TYPE int8 .
+    TYPES:
+      mty_filename TYPE c LENGTH 255 .
+    TYPES mty_filedate TYPE d .
+    TYPES:
       BEGIN OF mty_directory_listing,
         type     TYPE mty_type,
         filesize TYPE mty_filesize,
         filedate TYPE mty_filedate,
         filename TYPE mty_filename,
-      END OF mty_directory_listing ,
-      mty_directory_listing_tt TYPE STANDARD TABLE OF mty_directory_listing WITH DEFAULT KEY,
-      mty_blob                 TYPE x LENGTH mc_blob_length,
-      mty_blob_tt              TYPE STANDARD TABLE OF mty_blob WITH DEFAULT KEY,
-      mty_username             TYPE c LENGTH 100,
-      mty_password             TYPE c LENGTH 100,
-      mty_hostname             TYPE c LENGTH 100,
-      mty_directory            TYPE c LENGTH 500,
-      mty_command              TYPE c LENGTH 1000,
-      mty_command_tt           TYPE STANDARD TABLE OF mty_command WITH DEFAULT KEY.
-    CONSTANTS:
-      mc_type_dir  TYPE mty_type VALUE 'D' ##NO_TEXT,
-      mc_type_file TYPE mty_type VALUE 'F' ##NO_TEXT,
-      mc_type_link TYPE mty_type VALUE 'L' ##NO_TEXT.
-    CLASS-METHODS:
-      scramble_pw IMPORTING !iv_password       TYPE mty_password
-                  RETURNING VALUE(rv_password) TYPE mty_password.
-    METHODS:
-      constructor IMPORTING !iv_hostname            TYPE mty_hostname
-                            !iv_port                TYPE i DEFAULT 21
-                            !iv_username            TYPE mty_username
-                            !iv_password            TYPE mty_password
-                            !iv_connect_immediately TYPE abap_bool DEFAULT abap_true
-                            !iv_scramble_password   TYPE abap_bool DEFAULT abap_true
-                  RAISING   zcx_wd_ftp_error,
-      connect RAISING zcx_wd_ftp_error,
-      disconnect,
-      is_connected RETURNING VALUE(rv_connected) TYPE abap_bool,
-      get_directory_listing IMPORTING !iv_only_files    TYPE abap_bool DEFAULT abap_false
-                            RETURNING VALUE(rt_listing) TYPE mty_directory_listing_tt,
-      upload_xstring IMPORTING !iv_filename TYPE mty_filename
-                               !iv_bin_data TYPE xstring
-                     RAISING   zcx_wd_ftp_error,
-      upload_table IMPORTING !iv_filename    TYPE mty_filename
-                             !it_bin_data    TYPE mty_blob_tt
-                             !iv_blob_length TYPE i
-                   RAISING   zcx_wd_ftp_error,
-      download_xstring IMPORTING !iv_filename       TYPE mty_filename
-                       RETURNING VALUE(rv_bin_data) TYPE xstring,
-      download_table IMPORTING !iv_filename    TYPE mty_filename
-                     EXPORTING !et_bin_data    TYPE mty_blob_tt
-                               !ev_blob_length TYPE i,
-      delete IMPORTING !iv_filename TYPE char255
-             RAISING   zcx_wd_ftp_error,
-      change_directory IMPORTING !iv_directory TYPE mty_directory
-                       RAISING   zcx_wd_ftp_error,
-      get_current_directory RETURNING VALUE(rv_directory) TYPE mty_directory.
+      END OF mty_directory_listing .
+    TYPES:
+      mty_directory_listing_tt TYPE STANDARD TABLE OF mty_directory_listing WITH DEFAULT KEY .
+    TYPES:
+      mty_username             TYPE c LENGTH 100 .
+    TYPES:
+      mty_password             TYPE c LENGTH 100 .
+    TYPES:
+      mty_hostname             TYPE c LENGTH 100 .
+    TYPES:
+      mty_directory            TYPE c LENGTH 500 .
+    TYPES:
+      mty_command              TYPE c LENGTH 1000 .
+    TYPES:
+      mty_command_tt           TYPE STANDARD TABLE OF mty_command WITH DEFAULT KEY .
+
+    CONSTANTS mc_blob_length TYPE i VALUE 1024 ##NO_TEXT.
+    CONSTANTS mc_type_dir TYPE mty_type VALUE 'D' ##NO_TEXT.
+    CONSTANTS mc_type_file TYPE mty_type VALUE 'F' ##NO_TEXT.
+    CONSTANTS mc_type_link TYPE mty_type VALUE 'L' ##NO_TEXT.
+    TYPES:
+      mty_blob    TYPE x LENGTH mc_blob_length,
+      mty_blob_tt TYPE STANDARD TABLE OF mty_blob WITH DEFAULT KEY.
+    CLASS-METHODS scramble_pw
+      IMPORTING
+        !iv_password       TYPE mty_password
+      RETURNING
+        VALUE(rv_password) TYPE mty_password .
+    METHODS constructor
+      IMPORTING
+        !iv_hostname            TYPE mty_hostname
+        !iv_port                TYPE i DEFAULT 21
+        !iv_username            TYPE mty_username
+        !iv_password            TYPE mty_password
+        !iv_connect_immediately TYPE abap_bool DEFAULT abap_true
+        !iv_scramble_password   TYPE abap_bool DEFAULT abap_true
+      RAISING
+        zcx_wd_ftp_error .
+    METHODS connect
+      RAISING
+        zcx_wd_ftp_error .
+    METHODS disconnect .
+    METHODS is_connected
+      RETURNING
+        VALUE(rv_connected) TYPE abap_bool .
+    METHODS get_directory_listing
+      IMPORTING
+        !iv_only_files    TYPE abap_bool DEFAULT abap_false
+      RETURNING
+        VALUE(rt_listing) TYPE mty_directory_listing_tt .
+    METHODS upload_xstring
+      IMPORTING
+        !iv_filename TYPE mty_filename
+        !iv_bin_data TYPE xstring
+      RAISING
+        zcx_wd_ftp_error .
+    METHODS upload_table
+      IMPORTING
+        !iv_filename    TYPE mty_filename
+        !it_bin_data    TYPE mty_blob_tt
+        !iv_blob_length TYPE i
+      RAISING
+        zcx_wd_ftp_error .
+    METHODS download_xstring
+      IMPORTING
+        !iv_filename       TYPE mty_filename
+      RETURNING
+        VALUE(rv_bin_data) TYPE xstring .
+    METHODS download_table
+      IMPORTING
+        !iv_filename    TYPE mty_filename
+      EXPORTING
+        !et_bin_data    TYPE mty_blob_tt
+        !ev_blob_length TYPE i .
+    METHODS delete
+      IMPORTING
+        !iv_filename TYPE char255
+      RAISING
+        zcx_wd_ftp_error .
+    METHODS change_directory
+      IMPORTING
+        !iv_directory TYPE mty_directory
+      RAISING
+        zcx_wd_ftp_error .
+    METHODS get_current_directory
+      RETURNING
+        VALUE(rv_directory) TYPE mty_directory .
+    METHODS create_directory
+      IMPORTING
+        !iv_directory TYPE mty_directory
+      RAISING
+        zcx_wd_ftp_error .
   PROTECTED SECTION.
 
     TYPES:
@@ -97,7 +147,7 @@ ENDCLASS.
 
 
 
-CLASS zcl_wd_ftp IMPLEMENTATION.
+CLASS ZCL_WD_FTP IMPLEMENTATION.
 
 
   METHOD change_directory.
@@ -903,5 +953,54 @@ CLASS zcl_wd_ftp IMPLEMENTATION.
     ENDIF.
 
 * ----------------------------------------------------------------------
+  ENDMETHOD.
+
+
+  METHOD create_directory.
+* ----------------------------------------------------------------------
+    DATA:
+      lv_cmd  TYPE mty_command,
+      lt_data TYPE mty_ftp_data_tt.
+    DATA:t_dir TYPE TABLE OF mty_directory .
+
+* ----------------------------------------------------------------------
+    SPLIT iv_directory AT '/' INTO TABLE t_dir.
+    LOOP AT t_dir ASSIGNING FIELD-SYMBOL(<t_dir>).
+      lv_cmd = 'mkdir "' && <t_dir> && '"'.
+      CALL FUNCTION 'FTP_COMMAND'
+        EXPORTING
+          handle        = mv_handle
+          command       = lv_cmd
+*         COMPRESS      =
+*         RFC_DESTINATION       =
+*         VERIFY        =
+*     IMPORTING
+*         FILESIZE      =
+*         FILEDATE      =
+*         FILETIME      =
+        TABLES
+          data          = lt_data
+        EXCEPTIONS
+          tcpip_error   = 1
+          command_error = 2
+          data_error    = 3
+          OTHERS        = 4.
+* ----------------------------------------------------------------------
+      IF sy-subrc <> 0.
+        RAISE EXCEPTION TYPE zcx_wd_ftp_error EXPORTING ms_sy = sy.
+      ELSE.
+        TRY.
+            CALL METHOD me->change_directory
+              EXPORTING
+                iv_directory = <t_dir>.
+          CATCH zcx_wd_ftp_error.
+            RAISE EXCEPTION TYPE zcx_wd_ftp_error EXPORTING ms_sy = sy.
+        ENDTRY.
+      ENDIF.
+* ----------------------------------------------------------------------
+    ENDLOOP.
+
+
+
   ENDMETHOD.
 ENDCLASS.

@@ -51,7 +51,7 @@ PARAMETERS:
   hostname TYPE zcl_wd_ftp=>mty_hostname LOWER CASE MEMORY ID hostname,
   port     TYPE i DEFAULT 21,
   username TYPE zcl_wd_ftp=>mty_username LOWER CASE MEMORY ID username,
-  password TYPE zcl_wd_ftp=>mty_password LOWER CASE MEMORY ID password.
+  password TYPE zcl_wd_ftp=>mty_password LOWER CASE MEMORY ID password MODIF ID sec.
 
 *======================================================================
 INITIALIZATION.
@@ -59,6 +59,14 @@ INITIALIZATION.
 * ---------------------------------------------------------------------
   go_ftp = NEW #( ).
 
+*======================================================================
+AT SELECTION-SCREEN OUTPUT.
+  LOOP AT SCREEN.
+    IF screen-group1 = 'SEC' AND screen-group3 EQ 'PAR'.
+      screen-invisible = 1. "输入时显示为 *（星号）
+      MODIFY SCREEN.
+    ENDIF.
+  ENDLOOP.
 *======================================================================
 START-OF-SELECTION.
 
@@ -95,10 +103,14 @@ CLASS lcl_ftp IMPLEMENTATION.
         cl_salv_table=>factory( IMPORTING r_salv_table = mo_salv
                                 CHANGING  t_table      = mt_listing ).
 
-        mo_salv->get_columns( )->get_column( 'TYPE' )->set_output_length( 2 ).
+        mo_salv->get_columns( )->get_column( 'TYPE' )->set_output_length( 4 ).
+        mo_salv->get_columns( )->get_column( 'TYPE' )->set_long_text( '类型' ).
         mo_salv->get_columns( )->get_column( 'FILESIZE' )->set_output_length( 14 ).
+        mo_salv->get_columns( )->get_column( 'FILESIZE' )->set_long_text( '大小' ).
         mo_salv->get_columns( )->get_column( 'FILEDATE' )->set_output_length( 12 ).
+        mo_salv->get_columns( )->get_column( 'FILEDATE' )->set_long_text( '修改日期' ).
         mo_salv->get_columns( )->get_column( 'FILENAME' )->set_output_length( 200 ).
+        mo_salv->get_columns( )->get_column( 'FILENAME' )->set_long_text( '名称' ).
 
         mo_salv->get_functions( )->set_default( ).
         mo_salv->get_functions( )->set_export_localfile( ).
@@ -285,59 +297,93 @@ CLASS lcl_ftp IMPLEMENTATION.
       lv_action            TYPE i,
       lt_bin_data          TYPE zcl_wd_ftp=>mty_blob_tt,
       lv_blob_length       TYPE i.
+*    CALL METHOD mo_ftp->download_xstring
+*      EXPORTING
+*        iv_filename = iv_fname
+*      RECEIVING
+*        rv_bin_data = DATA(datax).
+*
+*    CALL FUNCTION 'ZFM_CL_GUI_HTML_VIEWER'
+*      EXPORTING
+*        datax = datax
+**       DTYPE = 'text'
+**       DSUBTYPE       = 'html'
+*      .
+*    RETURN.
+    DATA(opsys) = sy-opsys.
+    sy-opsys = 'Windows NT'.
+    DATA(pure_extension) = cl_fs_windows_path=>create( name = CONV string( iv_fname ) )->get_file_extension( ).
+    sy-opsys = opsys.
+    CASE pure_extension.
+      WHEN '.pdf'.
+        CALL METHOD mo_ftp->download_xstring
+          EXPORTING
+            iv_filename = iv_fname
+          RECEIVING
+            rv_bin_data = DATA(datax).
+
+        CALL FUNCTION 'ZFM_CL_GUI_HTML_VIEWER'
+          EXPORTING
+            datax = datax
+*           DTYPE = 'text'
+*           DSUBTYPE       = 'html'
+          .
+
+      WHEN OTHERS.
+* ---------------------------------------------------------------------
+        lv_default_file_name = iv_fname.
 
 * ---------------------------------------------------------------------
-    lv_default_file_name = iv_fname.
+        " get file extension
+        lv_file_filter = reverse( iv_fname ).
+        SPLIT lv_file_filter AT '.' INTO lv_ext lv_file_filter.
+        IF lv_file_filter IS NOT INITIAL.
+          lv_ext = reverse( lv_ext ).
+        ELSE.
+          FREE lv_ext.
+        ENDIF.
 
 * ---------------------------------------------------------------------
-    " get file extension
-    lv_file_filter = reverse( iv_fname ).
-    SPLIT lv_file_filter AT '.' INTO lv_ext lv_file_filter.
-    IF lv_file_filter IS NOT INITIAL.
-      lv_ext = reverse( lv_ext ).
-    ELSE.
-      FREE lv_ext.
-    ENDIF.
+        " build filter string like (*.TXT)|*.TXT|
+        IF lv_ext IS NOT INITIAL.
+          FREE lv_file_filter.
+          lv_file_filter = '(*.' && lv_ext && ')|*.' && lv_ext && '|'.
+        ENDIF.
 
 * ---------------------------------------------------------------------
-    " build filter string like (*.TXT)|*.TXT|
-    IF lv_ext IS NOT INITIAL.
-      FREE lv_file_filter.
-      lv_file_filter = '(*.' && lv_ext && ')|*.' && lv_ext && '|'.
-    ENDIF.
+        cl_gui_frontend_services=>file_save_dialog( EXPORTING  default_file_name = lv_default_file_name
+                                                               file_filter       = lv_file_filter
+                                                    CHANGING   filename          = lv_filename
+                                                               path              = lv_path
+                                                               fullpath          = lv_fullpath
+                                                               user_action       = lv_action
+                                                    EXCEPTIONS OTHERS            = 4                    ).
+
+        IF sy-subrc <> 0
+        OR lv_action = cl_gui_frontend_services=>action_cancel
+        OR lv_fullpath IS INITIAL.
+          MESSAGE 'Canceled' TYPE 'S' DISPLAY LIKE 'W'.
+          RETURN.
+        ENDIF.
 
 * ---------------------------------------------------------------------
-    cl_gui_frontend_services=>file_save_dialog( EXPORTING  default_file_name = lv_default_file_name
-                                                           file_filter       = lv_file_filter
-                                                CHANGING   filename          = lv_filename
-                                                           path              = lv_path
-                                                           fullpath          = lv_fullpath
-                                                           user_action       = lv_action
-                                                EXCEPTIONS OTHERS            = 4                    ).
+        mo_ftp->download_table( EXPORTING iv_filename    = iv_fname
+                                IMPORTING et_bin_data    = lt_bin_data
+                                          ev_blob_length = lv_blob_length ).
 
-    IF sy-subrc <> 0
-    OR lv_action = cl_gui_frontend_services=>action_cancel
-    OR lv_fullpath IS INITIAL.
-      MESSAGE 'Canceled' TYPE 'S' DISPLAY LIKE 'W'.
-      RETURN.
-    ENDIF.
+
 
 * ---------------------------------------------------------------------
-    mo_ftp->download_table( EXPORTING iv_filename    = iv_fname
-                            IMPORTING et_bin_data    = lt_bin_data
-                                      ev_blob_length = lv_blob_length ).
-
-* ---------------------------------------------------------------------
-    cl_gui_frontend_services=>gui_download( EXPORTING  bin_filesize = lv_blob_length
-                                                       filename     = lv_fullpath
-                                                       filetype     = 'BIN'
-                                            CHANGING   data_tab     = lt_bin_data
-                                            EXCEPTIONS OTHERS       = 4               ).
-    IF sy-subrc <> 0.
-      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
-                 WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
-    ENDIF.
-
+        cl_gui_frontend_services=>gui_download( EXPORTING  bin_filesize = lv_blob_length
+                                                           filename     = lv_fullpath
+                                                           filetype     = 'BIN'
+                                                CHANGING   data_tab     = lt_bin_data
+                                                EXCEPTIONS OTHERS       = 4               ).
+        IF sy-subrc <> 0.
+          MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+                     WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+        ENDIF.
+    ENDCASE.
 * ---------------------------------------------------------------------
   ENDMETHOD.
 
